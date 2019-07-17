@@ -263,6 +263,7 @@ int OpticalFlowOpenCV::calcFlow(uint8_t *img_current, const uint32_t &img_time_u
 	features_previous = features_current;
 	if (start_hover) {
         features_hover = features_current;
+        updateVectorPos.clear();
     }
 
 	//update feature status
