@@ -87,6 +87,13 @@ void OpticalFlowOpenCV::setCameraDistortion(float k1, float k2, float k3, float 
 }
 
 int OpticalFlowOpenCV::calcFlow(uint8_t *img_current, const uint32_t &img_time_us, int &dt_us,
+                                float &flow_x, float &flow_y)
+{
+    float pos_x = 0, pos_y = 0;
+    calcFlow(img_current, img_time_us, dt_us, flow_x, flow_y, pos_x, pos_y, 0);
+}
+
+int OpticalFlowOpenCV::calcFlow(uint8_t *img_current, const uint32_t &img_time_us, int &dt_us,
 				float &flow_x, float &flow_y, float &pos_x, float &pos_y, int start_hover)
 {
 
