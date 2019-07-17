@@ -61,7 +61,7 @@ private:
 	cv::Mat_<float> camera_distortion;
 	//general
 	std::vector<int> updateVector;
-	std::vector<cv::Point2f> features_current, features_previous, features_tmp, useless;
+	std::vector<cv::Point2f> features_current, features_previous, features_hover, features_tmp, useless;
 	bool set_camera_matrix;
 	bool set_camera_distortion;
 
@@ -81,6 +81,6 @@ public:
 	~OpticalFlowOpenCV();
 
 	int calcFlow(uint8_t *img_current, const uint32_t &img_time_us, int &dt_us,
-		     float &flow_x, float &flow_y);
+		     float &flow_x, float &flow_y, float &pos_x, float &pos_y, int start_hover);
 
 };

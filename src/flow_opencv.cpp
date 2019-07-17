@@ -87,7 +87,7 @@ void OpticalFlowOpenCV::setCameraDistortion(float k1, float k2, float k3, float 
 }
 
 int OpticalFlowOpenCV::calcFlow(uint8_t *img_current, const uint32_t &img_time_us, int &dt_us,
-				float &flow_x, float &flow_y)
+				float &flow_x, float &flow_y, float &pos_x, float &pos_y, int start_hover)
 {
 
 	if (updateVector.empty()) {
@@ -100,7 +100,14 @@ int OpticalFlowOpenCV::calcFlow(uint8_t *img_current, const uint32_t &img_time_u
 	float pixel_flow_x_stddev = 0.0;
 	float pixel_flow_y_stddev = 0.0;
 
-	cv::Mat frame_gray = cv::Mat(image_height, image_width, CV_8UC1);
+    int meancount_pos = 0;
+    float pixel_pos_x_mean = 0.0;
+    float pixel_pos_y_mean = 0.0;
+    float pixel_pos_x_stddev = 0.0;
+    float pixel_pos_y_stddev = 0.0;
+
+
+    cv::Mat frame_gray = cv::Mat(image_height, image_width, CV_8UC1);
 	frame_gray.data = (uchar *)img_current;
 
 	trackFeatures(frame_gray, frame_gray, features_current, useless, updateVector, 0);
@@ -179,8 +186,73 @@ int OpticalFlowOpenCV::calcFlow(uint8_t *img_current, const uint32_t &img_time_u
 		}
 	}
 
-	//remember features
+    if (!features_current.empty() && !features_hover.empty()) {
+        //calculate pixel flow
+        for (int i = 0; i < updateVector.size(); i++) {
+            //just use active features
+            if (updateVector[i] == 1) {
+                pixel_pos_x_mean += features_current[i].x - features_hover[i].x;
+                pixel_pos_y_mean += features_current[i].y - features_hover[i].y;
+                meancount_pos++;
+            }
+        }
+
+        //check if there are active features
+        if (meancount_pos) {
+            pixel_pos_x_mean /= meancount_pos;
+            pixel_pos_y_mean /= meancount_pos;
+
+            //calculate variance
+            for (int i = 0; i < updateVector.size(); i++) {
+                if (updateVector[i] == 1) {
+                    pixel_pos_x_stddev += pow(features_current[i].x - features_hover[i].x - pixel_pos_x_mean, 2);
+                    pixel_pos_y_stddev += pow(features_current[i].y - features_hover[i].y - pixel_pos_y_mean, 2);
+                }
+            }
+
+            //convert to standard deviation
+            pixel_pos_x_stddev = sqrt(pixel_pos_x_stddev / meancount_pos);
+            pixel_pos_y_stddev = sqrt(pixel_pos_y_stddev / meancount_pos);
+
+            //recalculate pixel flow with 90% confidence interval
+            float temp_flow_x_mean = 0.0;
+            float temp_flow_y_mean = 0.0;
+            meancount_pos = 0;
+
+            for (int i = 0; i < updateVector.size(); i++) {
+                //check if active
+                if (updateVector[i] == 1) {
+                    //flow of feature i
+                    float temp_flow_x = features_current[i].x - features_hover[i].x;
+                    float temp_flow_y = features_current[i].y - features_hover[i].y;
+                    //check if inside confidence interval
+
+                    if (fabs(temp_flow_x - pixel_pos_x_mean) < pixel_pos_x_stddev * confidence_multiplier &&
+                        fabs(temp_flow_y - pixel_pos_y_mean) < pixel_pos_y_stddev * confidence_multiplier) {
+                        temp_flow_x_mean += temp_flow_x;
+                        temp_flow_y_mean += temp_flow_y;
+                        meancount_pos++;
+
+                    } else {
+                        updateVector[i] = 0;
+                    }
+                }
+            }
+
+            if (meancount_pos) {
+                //new mean
+                pixel_pos_x_mean = temp_flow_x_mean / meancount_pos;
+                pixel_pos_y_mean = temp_flow_y_mean / meancount_pos;
+            }
+        }
+    }
+
+
+    //remember features
 	features_previous = features_current;
+	if (start_hover) {
+        features_hover = features_current;
+    }
 
 	//update feature status
 	for (int i = 0; i < updateVector.size(); i++) {
@@ -199,12 +271,19 @@ int OpticalFlowOpenCV::calcFlow(uint8_t *img_current, const uint32_t &img_time_u
 	flow_x = pixel_flow_x_mean;
 	flow_y = pixel_flow_y_mean;
 
-	int flow_quality = round(255.0 * meancount / updateVector.size());
+    pos_x = pixel_pos_x_mean;
+    pos_y = pixel_pos_y_mean;
+
+    int flow_quality = round(255.0 * meancount / updateVector.size());
 
 	flow_quality = limitRate(flow_quality, img_time_us, &dt_us, &flow_x, &flow_y);
 
 	flow_x = atan2(flow_x, focal_length_x); //convert pixel flow to angular flow
 	flow_y = atan2(flow_y, focal_length_y); //convert pixel flow to angular flow
 
-	return flow_quality;
+    pos_x = atan2(pos_x, focal_length_x); //convert pixel flow to angular flow
+    pos_y = atan2(pos_y, focal_length_y); //convert pixel flow to angular flow
+
+
+    return flow_quality;
 }

@@ -75,3 +75,4 @@ For code formatting [astyle](http://astyle.sourceforge.net/astyle.html) should b
 ```
 astyle <file> --options=.astylerc
 ```
+git submodule update --init --recursive
