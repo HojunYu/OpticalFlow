@@ -100,6 +100,9 @@ int OpticalFlowOpenCV::calcFlow(uint8_t *img_current, const uint32_t &img_time_u
 	if (updateVector.empty()) {
 		updateVector.resize(num_features, 2);
 	}
+    if (updateVectorPos.empty()) {
+        updateVectorPos.resize(num_features, 2);
+    }
 
 	int meancount = 0;
 	float pixel_flow_x_mean = 0.0;
@@ -118,6 +121,7 @@ int OpticalFlowOpenCV::calcFlow(uint8_t *img_current, const uint32_t &img_time_u
 	frame_gray.data = (uchar *)img_current;
 
 	trackFeatures(frame_gray, frame_gray, features_current, useless, updateVector, 0);
+    trackFeatures(frame_gray, frame_gray, features_current, useless, updateVectorPos, 0);
 
 	if (set_camera_matrix && set_camera_distortion) {
 		features_tmp = features_current;
@@ -195,9 +199,9 @@ int OpticalFlowOpenCV::calcFlow(uint8_t *img_current, const uint32_t &img_time_u
 
     if (!features_current.empty() && !features_hover.empty()) {
         //calculate pixel flow
-        for (int i = 0; i < updateVector.size(); i++) {
+        for (int i = 0; i < updateVectorPos.size(); i++) {
             //just use active features
-            if (updateVector[i] == 1) {
+            if (updateVectorPos[i] == 1) {
                 pixel_pos_x_mean += features_current[i].x - features_hover[i].x;
                 pixel_pos_y_mean += features_current[i].y - features_hover[i].y;
                 meancount_pos++;
@@ -210,8 +214,8 @@ int OpticalFlowOpenCV::calcFlow(uint8_t *img_current, const uint32_t &img_time_u
             pixel_pos_y_mean /= meancount_pos;
 
             //calculate variance
-            for (int i = 0; i < updateVector.size(); i++) {
-                if (updateVector[i] == 1) {
+            for (int i = 0; i < updateVectorPos.size(); i++) {
+                if (updateVectorPos[i] == 1) {
                     pixel_pos_x_stddev += pow(features_current[i].x - features_hover[i].x - pixel_pos_x_mean, 2);
                     pixel_pos_y_stddev += pow(features_current[i].y - features_hover[i].y - pixel_pos_y_mean, 2);
                 }
@@ -226,9 +230,9 @@ int OpticalFlowOpenCV::calcFlow(uint8_t *img_current, const uint32_t &img_time_u
             float temp_flow_y_mean = 0.0;
             meancount_pos = 0;
 
-            for (int i = 0; i < updateVector.size(); i++) {
+            for (int i = 0; i < updateVectorPos.size(); i++) {
                 //check if active
-                if (updateVector[i] == 1) {
+                if (updateVectorPos[i] == 1) {
                     //flow of feature i
                     float temp_flow_x = features_current[i].x - features_hover[i].x;
                     float temp_flow_y = features_current[i].y - features_hover[i].y;
@@ -241,7 +245,7 @@ int OpticalFlowOpenCV::calcFlow(uint8_t *img_current, const uint32_t &img_time_u
                         meancount_pos++;
 
                     } else {
-                        updateVector[i] = 0;
+                        updateVectorPos[i] = 0;
                     }
                 }
             }
@@ -274,7 +278,20 @@ int OpticalFlowOpenCV::calcFlow(uint8_t *img_current, const uint32_t &img_time_u
 		}
 	}
 
-	//output
+    //update feature status
+    for (int i = 0; i < updateVectorPos.size(); i++) {
+        //new and now active
+        if (updateVectorPos[i] == 2) {
+            updateVectorPos[i] = 1;
+        }
+
+        //inactive
+        if (updateVectorPos[i] == 0) {
+            updateVectorPos[i] = 2;
+        }
+    }
+
+    //output
 	flow_x = pixel_flow_x_mean;
 	flow_y = pixel_flow_y_mean;
 

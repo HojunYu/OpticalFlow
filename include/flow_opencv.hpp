@@ -61,6 +61,7 @@ private:
 	cv::Mat_<float> camera_distortion;
 	//general
 	std::vector<int> updateVector;
+    std::vector<int> updateVectorPos;
 	std::vector<cv::Point2f> features_current, features_previous, features_hover, features_tmp, useless;
 	bool set_camera_matrix;
 	bool set_camera_distortion;
