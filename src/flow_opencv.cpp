@@ -97,7 +97,12 @@ int OpticalFlowOpenCV::calcFlow(uint8_t *img_current, const uint32_t &img_time_u
 				float &flow_x, float &flow_y, float &pos_x, float &pos_y, int start_hover)
 {
 
-	if (updateVector.empty()) {
+    if (start_hover) {
+        features_hover.clear();
+        updateVectorPos.clear();
+    }
+
+    if (updateVector.empty()) {
 		updateVector.resize(num_features, 2);
 	}
     if (updateVectorPos.empty()) {
@@ -261,10 +266,6 @@ int OpticalFlowOpenCV::calcFlow(uint8_t *img_current, const uint32_t &img_time_u
 
     //remember features
 	features_previous = features_current;
-	if (start_hover) {
-        features_hover = features_current;
-        updateVectorPos.clear();
-    }
 
 	//update feature status
 	for (int i = 0; i < updateVector.size(); i++) {
